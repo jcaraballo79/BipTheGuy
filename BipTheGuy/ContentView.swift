@@ -8,12 +8,14 @@
 import SwiftUI
 import AVFAudio
 import PhotosUI
+import UIKit
 
 struct ContentView: View {
     @State private var audioPlayer: AVAudioPlayer!
     @State private var isFullSize = true
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var bipImage = Image("clown")
+    @AppStorage("savedImageData") private var savedImageData: Data = Data()
     
     var body: some View {
         VStack {
@@ -38,23 +40,33 @@ struct ContentView: View {
             PhotosPicker(
                 selection: $selectedPhoto,
                 matching: .images,
-                preferredItemEncoding: .automatic) {
-                    Label("Photo Library", systemImage: "photo.fill.on.rectangle.fill")
-                }
-            
-                .onChange(of: selectedPhoto) {
-                    Task {
-                        guard let selectedImage = try? await selectedPhoto?.loadTransferable(
-                            type: Image.self) else {
-                            print("😡 ERROR: Could not get image from loadTransferable.")
-                            return
-                        }
-                        bipImage = selectedImage
+                preferredItemEncoding: .automatic
+            ) {
+                Label("Photo Library", systemImage: "photo.fill.on.rectangle.fill")
+                    .font(.title2)
+            }
+            .buttonStyle(.glassProminent)
+            .tint(.green.opacity(0.7))
+            .controlSize(.large)
+            .onChange(of: selectedPhoto) {
+                Task {
+                    guard let data = try? await selectedPhoto?.loadTransferable(type: Data.self),
+                          let uiImage = UIImage(data: data) else {
+                        print("😡 ERROR: Could not get image data from loadTransferable.")
+                        return
                     }
+                    savedImageData = data
+                    bipImage = Image(uiImage: uiImage)
                 }
+            }
         }
         
         .padding()
+        .task {
+            if let uiImage = UIImage(data: savedImageData), !savedImageData.isEmpty {
+                bipImage = Image(uiImage: uiImage)
+            }
+        }
     }
     
     func playSound(soundName: String) {
